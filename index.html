@@ -49,7 +49,7 @@
     <details class="writer">
         <summary>写一条新动态</summary>
         <div class="writer-panel">
-            <textarea id="postText" placeholder="写下此刻的想法……"></textarea>
+            <textarea id="postText" placeholder="眼见何事，情系何处，身在何方，心思何人......"></textarea>
             <button id="publishPost" type="button">Next</button>
             <span id="publishStatus" class="publish-feedback" aria-live="polite" hidden></span>
         </div>
@@ -57,12 +57,12 @@
 
     <dialog id="tokenDialog" class="token-dialog">
         <form id="tokenForm">
-            <h2>连接 GitHub</h2>
-            <p>请输入仅授权 hubjet/log 仓库 Contents 读写权限的细粒度 Token。Token 只保存在当前页面内存中，关闭或刷新页面后会清除。</p>
-            <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴 GitHub Token" required>
+            <h2>落笔为安</h2>
+            <p>这一刻，写下来</p>
+            <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Speak, friend, and enter" required>
             <div class="dialog-actions">
-                <button id="cancelToken" type="button">取消</button>
-                <button type="submit">发布</button>
+                <button id="cancelToken" type="button">Cancel</button>
+                <button type="submit">Publish</button>
             </div>
         </form>
     </dialog>
@@ -147,7 +147,6 @@
             const text = textInput.value.trim();
             if (!text) {
                 textInput.focus();
-                showPublishStatus('请先输入动态内容。');
                 return;
             }
             const timestamp = localTimestamp();
@@ -177,7 +176,7 @@
             } catch (error) {
                 if (error.status === 401) githubToken = '';
                 const message = error.status === 401
-                    ? 'Token 无效或已过期，请再试一次。'
+                    ? 'You shall not pass'
                     : error.status === 403
                         ? 'Token 没有 hubjet/log 的 Contents 写入权限。'
                         : error.status === 404
@@ -195,7 +194,6 @@
         publishButton.addEventListener('click', () => {
             if (!textInput.value.trim()) {
                 textInput.focus();
-                showPublishStatus('请先输入动态内容。');
                 return;
             }
             if (githubToken) {
