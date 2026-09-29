@@ -3,14 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hubjet 的碎碎念</title>
+    <title>Hubjet — Timeline</title>
     <style>
-        :root { --bg: #ffffff; --text: #222; --date: #999; --border: #f0f0f0; }
+        :root { --bg: #f5f5f7; --text: #1d1d1f; --date: #86868b; --border: #d2d2d7; }
         body { max-width: 500px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); }
         h1 { font-size: 24px; font-weight: 800; letter-spacing: -1px; margin-bottom: 50px; }
         .post { margin-bottom: 40px; position: relative; }
         .date { font-size: 12px; color: var(--date); margin-bottom: 8px; font-family: monospace; }
         .content { font-size: 16px; line-height: 1.6; word-wrap: break-word; }
+        .writer { margin: -24px 0 44px; }
+        .writer summary { color: var(--date); font-size: 13px; cursor: pointer; }
+        .writer-panel { margin-top: 14px; }
+        .writer textarea, .writer output { box-sizing: border-box; width: 100%; font: inherit; font-size: 14px; }
+        .writer textarea { min-height: 100px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.65); color: var(--text); resize: vertical; }
+        .writer output { display: block; min-height: 50px; margin-top: 10px; padding: 12px; border-radius: 8px; background: rgba(255,255,255,.65); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--date); }
+        .writer button { margin-top: 10px; padding: 8px 12px; border: 0; border-radius: 8px; background: var(--text); color: white; font: inherit; cursor: pointer; }
+        .writer .hint { margin: 8px 0 0; color: var(--date); font-size: 12px; line-height: 1.5; }
         
 /* 纯净图片样式 */
         .content img { 
@@ -28,13 +36,19 @@
     </style>
 </head>
 <body>
-    <h1>碎碎念.</h1>
+    <h1>Timeline</h1>
+
+    <details class="writer">
+        <summary>写一条新动态</summary>
+        <div class="writer-panel">
+            <textarea id="postText" placeholder="写下此刻的想法……"></textarea>
+            <p class="hint">输入内容并生成代码后，打开 index.html，把代码粘贴在 &lt;div id="feed"&gt; 下一行（旧文章之前），保存并按原来的方式重新发布。日期会自动使用你设备的本地时间。</p>
+            <output id="postCode">生成的文章代码会显示在这里。</output>
+            <button id="copyPost" type="button">生成并复制代码</button>
+        </div>
+    </details>
 
     <div id="feed">
-        <div class="post">
-            <div class="date">2026-09-29 10:06</div>
-            <div class="content">这是非常棒的感觉</div>
-        </div>
         <div class="post">
             <div class="date">2026-04-18 12:00</div>
             <div class="content">
@@ -52,5 +66,28 @@
             <div class="content">在这里重启了。抛弃了繁琐的框架，只留下文字。</div>
         </div>
     </div>
+    <script>
+        const textInput = document.getElementById('postText');
+        const codeOutput = document.getElementById('postCode');
+        document.getElementById('copyPost').addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            if (!text) {
+                textInput.focus();
+                return;
+            }
+            const now = new Date();
+            const pad = value => String(value).padStart(2, '0');
+            const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;').replace(/\r?\n/g, '<br>');
+            const snippet = `        <div class="post">\n            <div class="date">${timestamp}</div>\n            <div class="content">${escaped}</div>\n        </div>`;
+            codeOutput.textContent = snippet;
+            try {
+                await navigator.clipboard.writeText(snippet);
+                document.getElementById('copyPost').textContent = '已复制，粘贴到文章列表顶部';
+            } catch {
+                document.getElementById('copyPost').textContent = '代码已生成，请手动选中复制';
+            }
+        });
+    </script>
 </body>
 </html>
