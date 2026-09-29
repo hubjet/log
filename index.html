@@ -6,19 +6,27 @@
     <title>Hubjet — Timeline</title>
     <style>
         :root { --bg: #f5f5f7; --text: #1d1d1f; --date: #86868b; --border: #d2d2d7; }
-        body { max-width: 500px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); }
-        h1 { font-size: 24px; font-weight: 800; letter-spacing: -1px; margin-bottom: 50px; }
-        .post { margin-bottom: 40px; position: relative; }
-        .date { font-size: 12px; color: var(--date); margin-bottom: 8px; font-family: monospace; }
-        .content { font-size: 16px; line-height: 1.6; word-wrap: break-word; }
-        .writer { margin: -24px 0 44px; }
-        .writer summary { color: var(--date); font-size: 13px; cursor: pointer; }
+        body { max-width: 500px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, system-ui, sans-serif; font-size: 19px; background: var(--bg); color: var(--text); }
+        h1 { font-size: 29px; font-weight: 800; letter-spacing: -1px; margin-bottom: 50px; }
+        .post { margin-bottom: 28px; position: relative; }
+        .date { font-size: 14px; color: var(--date); margin-bottom: 10px; font-family: monospace; }
+        .content { font-size: 19px; line-height: 1.6; word-wrap: break-word; }
+        .writer { margin: -24px 0 32px; }
+        .writer summary { color: var(--date); font-size: 16px; cursor: pointer; }
         .writer-panel { margin-top: 14px; }
-        .writer textarea, .writer output { box-sizing: border-box; width: 100%; font: inherit; font-size: 14px; }
-        .writer textarea { min-height: 100px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.65); color: var(--text); resize: vertical; }
-        .writer output { display: block; min-height: 50px; margin-top: 10px; padding: 12px; border-radius: 8px; background: rgba(255,255,255,.65); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--date); }
-        .writer button { margin-top: 10px; padding: 8px 12px; border: 0; border-radius: 8px; background: var(--text); color: white; font: inherit; cursor: pointer; }
-        .writer .hint { margin: 8px 0 0; color: var(--date); font-size: 12px; line-height: 1.5; }
+        .writer textarea { box-sizing: border-box; width: 100%; min-height: 100px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.65); color: var(--text); font: inherit; font-size: 17px; resize: vertical; }
+        .writer button { margin-top: 10px; padding: 7px 11px; border: 0; border-radius: 8px; background: #e5e5ea; color: var(--text); font: inherit; font-size: 19px; cursor: pointer; }
+        .writer button:hover { background: #dcdce1; }
+        .writer button:disabled { opacity: .65; cursor: wait; }
+        .token-dialog { box-sizing: border-box; width: min(420px, calc(100% - 48px)); padding: 24px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); color: var(--text); font: inherit; }
+        .token-dialog::backdrop { background: rgba(0,0,0,.28); }
+        .token-dialog h2 { margin: 0 0 10px; font-size: 22px; }
+        .token-dialog p { margin: 0 0 16px; color: var(--date); font-size: 15px; line-height: 1.5; }
+        .token-dialog input { box-sizing: border-box; width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--text); font: inherit; font-size: 16px; }
+        .token-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+        .token-dialog .dialog-actions button { margin: 0; font-size: 16px; }
+        .publish-feedback { margin-top: 12px; color: var(--date); font-size: 15px; }
+        .publish-feedback[hidden] { display: none; }
         
 /* 纯净图片样式 */
         .content img { 
@@ -42,11 +50,22 @@
         <summary>写一条新动态</summary>
         <div class="writer-panel">
             <textarea id="postText" placeholder="写下此刻的想法……"></textarea>
-            <p class="hint">输入内容并生成代码后，打开 index.html，把代码粘贴在 &lt;div id="feed"&gt; 下一行（旧文章之前），保存并按原来的方式重新发布。日期会自动使用你设备的本地时间。</p>
-            <output id="postCode">生成的文章代码会显示在这里。</output>
-            <button id="copyPost" type="button">生成并复制代码</button>
+            <button id="publishPost" type="button">Next</button>
+            <span id="publishStatus" class="publish-feedback" aria-live="polite" hidden></span>
         </div>
     </details>
+
+    <dialog id="tokenDialog" class="token-dialog">
+        <form id="tokenForm">
+            <h2>连接 GitHub</h2>
+            <p>请输入仅授权 hubjet/log 仓库 Contents 读写权限的细粒度 Token。Token 只保存在当前页面内存中，关闭或刷新页面后会清除。</p>
+            <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴 GitHub Token" required>
+            <div class="dialog-actions">
+                <button id="cancelToken" type="button">取消</button>
+                <button type="submit">发布</button>
+            </div>
+        </form>
+    </dialog>
 
     <div id="feed">
         <div class="post">
@@ -68,25 +87,135 @@
     </div>
     <script>
         const textInput = document.getElementById('postText');
-        const codeOutput = document.getElementById('postCode');
-        document.getElementById('copyPost').addEventListener('click', async () => {
+        const publishButton = document.getElementById('publishPost');
+        const publishStatus = document.getElementById('publishStatus');
+        const tokenDialog = document.getElementById('tokenDialog');
+        const tokenInput = document.getElementById('tokenInput');
+        let githubToken = '';
+
+        const pad = value => String(value).padStart(2, '0');
+        const localTimestamp = () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        };
+        const escapePostText = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;').replace(/\r?\n/g, '<br>');
+        const encodeBase64 = text => {
+            const bytes = new TextEncoder().encode(text);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+            }
+            return btoa(binary);
+        };
+        const decodeBase64 = base64 => {
+            const binary = atob(base64.replace(/\s/g, ''));
+            const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+            return new TextDecoder().decode(bytes);
+        };
+        const showPublishStatus = (message, commitUrl = '') => {
+            publishStatus.replaceChildren(document.createTextNode(message));
+            if (commitUrl) {
+                publishStatus.append(' ');
+                const link = document.createElement('a');
+                link.href = commitUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = '查看 GitHub 提交';
+                publishStatus.append(link);
+            }
+            publishStatus.hidden = false;
+        };
+        const githubRequest = async (url, token, options = {}) => {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    Accept: 'application/vnd.github+json',
+                    Authorization: `Bearer ${token}`,
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    ...(options.headers || {})
+                }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const error = new Error(data.message || `GitHub API returned ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+            return data;
+        };
+        const publishPost = async token => {
             const text = textInput.value.trim();
             if (!text) {
                 textInput.focus();
+                showPublishStatus('请先输入动态内容。');
                 return;
             }
-            const now = new Date();
-            const pad = value => String(value).padStart(2, '0');
-            const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;').replace(/\r?\n/g, '<br>');
-            const snippet = `        <div class="post">\n            <div class="date">${timestamp}</div>\n            <div class="content">${escaped}</div>\n        </div>`;
-            codeOutput.textContent = snippet;
+            const timestamp = localTimestamp();
+            const article = `        <div class="post">\n            <div class="date">${timestamp}</div>\n            <div class="content">${escapePostText(text)}</div>\n        </div>`;
+            publishButton.disabled = true;
+            publishStatus.hidden = true;
             try {
-                await navigator.clipboard.writeText(snippet);
-                document.getElementById('copyPost').textContent = '已复制，粘贴到文章列表顶部';
-            } catch {
-                document.getElementById('copyPost').textContent = '代码已生成，请手动选中复制';
+                const apiUrl = 'https://api.github.com/repos/hubjet/log/contents/index.html';
+                const current = await githubRequest(`${apiUrl}?ref=main`, token);
+                const html = decodeBase64(current.content);
+                const feed = /<div\b(?=[^>]*\bid=["']feed["'])[^>]*>/i.exec(html);
+                if (!feed) throw new Error('在 GitHub 上的 index.html 中找不到文章列表 #feed。');
+                const insertAt = feed.index + feed[0].length;
+                const updatedHtml = `${html.slice(0, insertAt)}\n${article}\n${html.slice(insertAt)}`;
+                const saved = await githubRequest(apiUrl, token, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: `Add post: ${timestamp}`,
+                        content: encodeBase64(updatedHtml),
+                        sha: current.sha,
+                        branch: 'main'
+                    })
+                });
+                textInput.value = '';
+                showPublishStatus('已发布到 GitHub。', saved.commit?.html_url || saved.content?.html_url || 'https://github.com/hubjet/log');
+            } catch (error) {
+                if (error.status === 401) githubToken = '';
+                const message = error.status === 401
+                    ? 'Token 无效或已过期，请再试一次。'
+                    : error.status === 403
+                        ? 'Token 没有 hubjet/log 的 Contents 写入权限。'
+                        : error.status === 404
+                            ? '找不到文件或仓库，请检查 Token 的仓库访问范围。'
+                            : error.status === 409
+                                ? 'GitHub 文件刚刚有其他更新，请再次点击 Next 重试。'
+                                : error.message.includes('文章列表 #feed')
+                                    ? error.message
+                                    : '发布失败：' + error.message;
+                showPublishStatus(message);
+            } finally {
+                publishButton.disabled = false;
             }
+        });
+        publishButton.addEventListener('click', () => {
+            if (!textInput.value.trim()) {
+                textInput.focus();
+                showPublishStatus('请先输入动态内容。');
+                return;
+            }
+            if (githubToken) {
+                publishPost(githubToken);
+            } else {
+                publishStatus.hidden = true;
+                tokenInput.value = '';
+                tokenDialog.showModal();
+                tokenInput.focus();
+            }
+        });
+        document.getElementById('cancelToken').addEventListener('click', () => tokenDialog.close());
+        document.getElementById('tokenForm').addEventListener('submit', event => {
+            event.preventDefault();
+            const token = tokenInput.value.trim();
+            if (!token) return;
+            githubToken = token;
+            tokenInput.value = '';
+            tokenDialog.close();
+            publishPost(githubToken);
         });
     </script>
 </body>
